@@ -19,6 +19,8 @@ cmd:text('Example:')
 cmd:text('$ th g2p.lua -use_google_model -lr 0.001 -lr_decay 1e-9 -mom 0.9 -damp 0.9 -nesterov true')
 cmd:text('$ th g2p.lua -use_google_model -load_model -load_model_dir 2016_6_23___12_14_32 -load_model_fn e4_2.7609.t7')
 cmd:text('Options:')
+-- Data
+cmd:option('-train_on_valid', false, 'Train on valid instead of training. Used to debug because it is faster')
 -- Model 
 cmd:option('-batchsize', 8, 'number of examples in minibatch')
 cmd:option('-epochs', 50, 'max number of epochs to train for')
@@ -27,8 +29,9 @@ cmd:option('-use_google_model', false, 'whether to use google paper architecture
 cmd:option('-load_model', false, 'start training from existing model')
 cmd:option('-load_model_dir', '', 'directory to load model and params from')
 cmd:option('-load_model_fn', '', 'fn of model to load')
--- SGD params
-cmd:option('-lr', 0.001, 'learning rate')
+-- Optimization
+cmd:option('-use_adam', false, 'Use Adam to optimize')
+cmd:option('-lr', 0.1, 'learning rate')
 cmd:option('-lr_decay', 0, 'learning rate decay')
 cmd:option('-weight_decay', 0, 'weight decay')
 cmd:option('-mom', 0, 'momentum')
@@ -38,6 +41,7 @@ cmd:option('-nesterov', false, 'Nesterov momentum')
 cmd:option('-models_dir', 'models', 'directory to save models to')
 cmd:option('-gpuid', -1, 'ID of gpu to run on')
 cmd:option('-save_model_every_epoch', 1, 'how often to save model')
+cmd:option('-notes', '', 'String of notes, e.g. using batch norm. To keep track of iterative testing / small modifications')
 local opt = cmd:parse(arg)
 
 if opt.gpuid >= 0 then
@@ -61,8 +65,12 @@ local num_phonemes = size_of_table(phoneme_to_idx)
 
 local get_batcher = require 'batcher'
 
--- local train_batcher = get_batcher(dataset.train, opt.batchsize, num_graphemes)
-local train_batcher = get_batcher(dataset.valid, opt.batchsize, num_graphemes)
+local train_batcher = nil
+if opt.train_on_valid then
+	train_batcher = get_batcher(dataset.valid, opt.batchsize, num_graphemes)
+else
+	train_batcher = get_batcher(dataset.train, opt.batchsize, num_graphemes)
+end
 local val_batcher = get_batcher(dataset.valid, opt.batchsize, num_graphemes)
 
 ---------------------------------------------------------------------------
@@ -217,8 +225,14 @@ for i=cur_epoch,opt.epochs do
 
 	-- Iterate over training set, add training loss to table
 	local avg_train_loss = 0
+	model:training()
 	for j=1,num_train_batches do
-		local _, fs = optim.sgd(feval, params, sgd_params)
+		local _, fs
+		if opt.use_adam then
+			_, fs = optim.adam(feval, params, sgd_params, {})
+		else
+			_, fs = optim.sgd(feval, params, sgd_params)
+		end
 
 		-- Update running average loss
 		local batch_loss = fs[1]
@@ -230,8 +244,14 @@ for i=cur_epoch,opt.epochs do
 
 	-- Iterate over validation set
 	local avg_val_loss = 0
+	model:evaluate()
 	for j=1,num_val_batches do
-		local _, fs = optim.sgd(val_eval, params, sgd_params)
+		local _, fs
+		if opt.use_adam then
+			_, fs = optim.adam(val_eval, params, sgd_params, {})
+		else
+			_, fs = optim.sgd(val_eval, params, sgd_params)
+		end
 		local batch_loss = fs[1]
 		avg_val_loss = avg_val_loss * (num_val_batches-1) / num_val_batches + batch_loss / num_val_batches
 		xlua.progress(j, num_val_batches)

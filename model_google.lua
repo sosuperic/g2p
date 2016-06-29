@@ -63,18 +63,19 @@ local function g2p_model(use_cudnn, num_graphemes, num_phonemes, batchsize)
 
 	-- 2nd hidden layer 
 	local cadd = nn.CAddTable()({rnn_left, rnn_right})
-	local bn1 = nn.BatchNormalization(512)(cadd)
 	rnn_module = get_rnn_module(use_cudnn, 512, 128)
-	rnn2 = convert_to_masked_unidirectional(bn1, seq_lengths, rnn_module)
+	local rnn2 = convert_to_masked_unidirectional(cadd, seq_lengths, rnn_module)
+	-- local bn1 = nn.BatchNormalization(512)(cadd)
+	-- rnn2 = convert_to_masked_unidirectional(bn1, seq_lengths, rnn_module)
 
 	-- Add linear layer to output of rnn
 	local post_rnn = nn.Sequential()
-	post_rnn:add(nn.BatchNormalization(128))
-	post_rnn:add(nn.Linear(128, num_phonemes))
+	-- post_rnn:add(nn.BatchNormalization(128))
+	post_rnn:add(nn.Linear(128, num_phonemes + 1))	-- + 1 for the BLANK character in CTC
 
 	-- Reshape from (seq_length x batch) x output_dim --> seq_length x batch x output_dim
 	-- CTCCriterion expects seq_length x batch x output_dim
-	post_rnn:add(nn.View(-1, batchsize, num_phonemes))
+	post_rnn:add(nn.View(-1, batchsize, num_phonemes + 1))
 
 	-- Glue together module
 	local model = nn.gModule({input, seq_lengths}, { post_rnn(rnn2) })
