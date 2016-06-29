@@ -109,9 +109,11 @@ function get_data_and_graphemes()
 		if not word_is_invalid(dict, i) then
 			local word, phonemes = unpack(split_line_into_word_and_phonemes(dict, i))
 			-- Ignore words that include non-letters (uppercase %A matches inverse set)
-			if not word:match('%A') then 
-				graphemes = add_to_grapheme_set(graphemes, word)
-				table.insert(data, {word=word, phonemes=phonemes})
+			if not word:match('%A') then
+				if #word >= #phonemes then -- CTC doesn't work when len of target sequence > len of input seq
+					graphemes = add_to_grapheme_set(graphemes, word)
+					table.insert(data, {word=word, phonemes=phonemes})
+				end
 			end
 		end
 	end
@@ -184,13 +186,10 @@ end
 
 function split_data(data)
 	data = shuffle_table(data)
-	print(#data)
-	-- local valid = subrange(data, 1, NUM_VALID)
-	-- local test = subrange(data, NUM_VALID+1, NUM_VALID+NUM_TEST)
-	-- local train = subrange(data, NUM_VALID+NUM_TEST+1, #data)
 	local valid = sort_by_seq_length(subrange(data, 1, NUM_VALID))
 	local test = sort_by_seq_length(subrange(data, NUM_VALID+1, NUM_VALID+NUM_TEST))
 	local train = sort_by_seq_length(subrange(data, NUM_VALID+NUM_TEST+1, #data))
+	print(#data, #train, #valid, #test)
 	return {train=train, valid=valid, test=test}
 end
 
