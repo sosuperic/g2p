@@ -148,7 +148,9 @@ for i=1,batcher:num_batches() do
 	local phonemes = convert_targets_to_phonemes(targets)
 
 	local predictions = model:forward({ inputs, sizes }) -- batch_seq_length x batch x output_dim
-
+	local cur_batchsize	= #targets											-- Last batch in epoch may be smaller than opt.batchsize
+	predictions = predictions:view(-1, cur_batchsize, num_phonemes + 1)		-- CTCCriterion expects seq_length x batch x output_dim
+	
 	-- Now use above to construct each predicted sequence
 	local preds = convert_preds_to_phonemes(predictions, sizes)
 

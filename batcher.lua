@@ -38,7 +38,7 @@ function get_batcher(dataset_split, batchsize, num_graphemes)
 		end
 
 		-- Construct batched inputs: batchsize x batch_seq_length x num_graphemes
-		local inputs = torch.zeros(batchsize, batch_seq_length, num_graphemes)
+		local inputs = torch.zeros(#batch_items, batch_seq_length, num_graphemes)
 		for i=1,#batch_items do
 			inputs[{{i},{1,sizes[i]},{1,num_graphemes}}] = batch_items[i]
 		end

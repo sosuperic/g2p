@@ -158,6 +158,8 @@ local function feval(params_new)
 	end
 
 	local predictions = model:forward({ inputs, sizes })
+	local cur_batchsize	= #targets											-- Last batch in epoch may be smaller than opt.batchsize
+	predictions = predictions:view(-1, cur_batchsize, num_phonemes + 1)		-- CTCCriterion expects seq_length x batch x output_dim
 	local loss = ctc_criterion:forward(predictions, targets, sizes)
 	
 	-- Loss blows up rarely for some minibatches when using GPU...
@@ -167,6 +169,7 @@ local function feval(params_new)
 		if opt.gpuid < 0 then
 			grad_output = grad_output:double()
 		end
+		grad_output = grad_output:view(-1, num_phonemes+1)					-- Model's last module is: (seq_length x batch) x output_dim
 		model:backward(inputs, grad_output)
 		grad_params:div(inputs:size(1)) 		-- Divide by batchsize
 	else
@@ -188,6 +191,8 @@ local function val_eval(params_new)
 	end
 
 	local predictions = model:forward({ inputs, sizes })
+	local cur_batchsize	= #targets											-- Last batch in epoch may be smaller than opt.batchsize
+	predictions = predictions:view(-1, cur_batchsize, num_phonemes + 1)		-- CTCCriterion expects seq_length x batch x output_dim
 	local loss = ctc_criterion:forward(predictions, targets, sizes)
 
 	-- Again, loss blows up for some minibatches when using GPU...

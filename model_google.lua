@@ -75,7 +75,7 @@ local function g2p_model(use_cudnn, num_graphemes, num_phonemes, batchsize)
 
 	-- Reshape from (seq_length x batch) x output_dim --> seq_length x batch x output_dim
 	-- CTCCriterion expects seq_length x batch x output_dim
-	post_rnn:add(nn.View(-1, batchsize, num_phonemes + 1))
+	-- post_rnn:add(nn.View(-1, batchsize, num_phonemes + 1))
 
 	-- Glue together module
 	local model = nn.gModule({input, seq_lengths}, { post_rnn(rnn2) })
