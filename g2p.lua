@@ -268,7 +268,6 @@ for i=cur_epoch,opt.epochs do
 	if (i % opt.save_model_every_epoch == 0) then
 		local fn = string.format('e%d_%.4f.t7', i, avg_train_loss)
 		local fp = path.join(save_path, fn)
-		torch.save(fp, model:double())
 		if opt.gpuid >= 0 then	-- convert back
 			model:cuda()
 		end
