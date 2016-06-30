@@ -30,6 +30,7 @@ cmd:option('-load_model', false, 'start training from existing model')
 cmd:option('-load_model_dir', '', 'directory to load model and params from')
 cmd:option('-load_model_fn', '', 'fn of model to load')
 -- Optimization
+cmd:option('-use_rmsprop', false, 'Use RMSprop to optimize')
 cmd:option('-use_adam', false, 'Use Adam to optimize')
 cmd:option('-lr', 0.1, 'learning rate')
 cmd:option('-lr_decay', 0, 'learning rate decay')
@@ -235,6 +236,8 @@ for i=cur_epoch,opt.epochs do
 		local _, fs
 		if opt.use_adam then
 			_, fs = optim.adam(feval, params, sgd_params, {})
+		elseif opt.use_rmsprop then
+			_, fs = optim.rmsprop(feval, params, sgd_params, {})
 		else
 			_, fs = optim.sgd(feval, params, sgd_params)
 		end
@@ -254,9 +257,12 @@ for i=cur_epoch,opt.epochs do
 		local _, fs
 		if opt.use_adam then
 			_, fs = optim.adam(val_eval, params, sgd_params, {})
+		elseif opt.use_rmsprop then
+			_, fs = optim.rmsprop(val_eval, params, sgd_params, {})
 		else
 			_, fs = optim.sgd(val_eval, params, sgd_params)
 		end
+
 		local batch_loss = fs[1]
 		avg_val_loss = avg_val_loss * (num_val_batches-1) / num_val_batches + batch_loss / num_val_batches
 		xlua.progress(j, num_val_batches)
@@ -273,9 +279,7 @@ for i=cur_epoch,opt.epochs do
 	if (i % opt.save_model_every_epoch == 0) then
 		local fn = string.format('e%d_%.4f.t7', i, avg_train_loss)
 		local fp = path.join(save_path, fn)
-		if opt.gpuid >= 0 then	-- convert back
-			model:cuda()
-		end
+		torch.save(fp, model)
 		print('Saving checkpoint model to ' .. fp)
 	end
 

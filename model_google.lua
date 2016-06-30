@@ -62,9 +62,12 @@ local function g2p_model(use_cudnn, num_graphemes, num_phonemes, batchsize)
 	local rnn_right = convert_to_masked_bidirectional(rnn, seq_lengths, rnn_module)
 
 	-- 2nd hidden layer 
-	local cadd = nn.CAddTable()({rnn_left, rnn_right})
-	rnn_module = get_rnn_module(use_cudnn, 512, 128)
-	local rnn2 = convert_to_masked_unidirectional(cadd, seq_lengths, rnn_module)
+	-- local cadd = nn.CAddTable()({rnn_left, rnn_right})
+	-- rnn_module = get_rnn_module(use_cudnn, 512, 128)
+	-- local rnn2 = convert_to_masked_unidirectional(cadd, seq_lengths, rnn_module)
+	local jt = nn.JoinTable(2)({rnn_left, rnn_right})	-- (seq x batch) x (feat_left + feat_right)
+	rnn_module = get_rnn_module(use_cudnn, 1024, 128)
+	local rnn2 = convert_to_masked_unidirectional(jt, seq_lengths, rnn_module)
 	-- local bn1 = nn.BatchNormalization(512)(cadd)
 	-- rnn2 = convert_to_masked_unidirectional(bn1, seq_lengths, rnn_module)
 
