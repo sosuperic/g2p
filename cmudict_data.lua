@@ -193,6 +193,38 @@ function split_data(data)
 	return {train=train, valid=valid, test=test}
 end
 
+function count_phonemes(split)
+	local counts = defaultdict(0)
+	for i=1,#split do
+		for j=1,#split[i].phonemes do
+			p = split[i].phonemes[j]
+			counts[p] = counts[p] + 1
+		end
+	end
+	for p,c in pairs(counts) do
+		counts[p] = c / #split
+	end
+	return counts
+end
+
+function check_phonetic_balance(dataset)
+	local tr_counts = count_phonemes(dataset.train)
+	local va_counts = count_phonemes(dataset.valid)
+	local te_counts = count_phonemes(dataset.test)
+
+	local counts = defaultdict('')
+	for p,c in pairs(tr_counts) do
+		counts[p] = tonumber(c)
+	end
+	for p,c in pairs(va_counts) do
+		counts[p] = counts[p] .. ' ' .. tonumber(c)
+	end
+	for p,c in pairs(te_counts) do
+		counts[p] = counts[p]  .. '' .. tonumber(c)
+	end
+	print(counts)
+end
+
 ------------------------------------------------------------------------
 -- Main
 ------------------------------------------------------------------------
@@ -200,6 +232,7 @@ local phonemes, phoneme_to_idx = unpack(get_phonemes())
 local data, grapheme_to_idx = unpack(get_data_and_graphemes())
 data = encode_data(data, grapheme_to_idx, phoneme_to_idx)
 local dataset = split_data(data)
+-- check_phonetic_balance(dataset)
 
 -- torch.save('dataset_and_mappings.t7', {dataset, grapheme_to_idx, phoneme_to_idx})
 -- return torch.load('dataset_and_mappings.t7')
