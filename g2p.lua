@@ -23,8 +23,7 @@ cmd:text('Options:')
 cmd:option('-train_on_valid', false, 'Train on valid instead of training. Used to debug because it is faster')
 -- Model 
 cmd:option('-batchsize', 8, 'number of examples in minibatch')
-cmd:option('-epochs', 50, 'max number of epochs to train for')
-cmd:option('-use_google_model', false, 'whether to use google paper architecture')
+cmd:option('-epochs', 100, 'max number of epochs to train for')
 -- Load model
 cmd:option('-load_model', false, 'start training from existing model')
 cmd:option('-load_model_dir', '', 'directory to load model and params from')
@@ -91,6 +90,11 @@ if opt.load_model then -- Load opt, sgd_params, and model, epoch
 	
 	opt = torch.load(path.join(load_params.models_dir, load_params.load_model_dir, 'cmd.t7'))
 	sgd_params = torch.load(path.join(load_params.models_dir, load_params.load_model_dir, 'sgd_params.t7'))
+
+	-- opt.lr = 0.001
+	-- sgd_params.learningRate = 0.001
+	-- opt.epochs = 150
+
 	model = torch.load(path.join(load_params.models_dir, load_params.load_model_dir, load_params.load_model_fn))
 	cur_epoch = tonumber(string.match(load_params.load_model_fn, 'e(%d+)_.+.t7')) + 1
 	save_path = path.join(load_params.models_dir, load_params.load_model_dir)
@@ -110,7 +114,7 @@ else
 
 	-- Set up network
 	-- Check which model to load
-	local g2p_model = ternary_op(opt.use_google_model, require 'model_google', require 'model')
+	local g2p_model = require 'model_google'
 	if opt.gpuid >= 0 then
 		model = g2p_model(true, num_graphemes, num_phonemes, opt.batchsize)
 	else
@@ -163,8 +167,7 @@ local function feval(params_new)
 	predictions = predictions:view(-1, cur_batchsize, num_phonemes + 1)		-- CTCCriterion expects seq_length x batch x output_dim
 	local loss = ctc_criterion:forward(predictions, targets, sizes)
 	
-	-- Loss blows up rarely for some minibatches when using GPU...
-	-- Only update parameters if doesn't blow up
+	-- Loss used to blow up for some minibatches when using GPU (this should be fixed, see commits)
 	if math.abs(loss) <= 1000 then
 		local grad_output = ctc_criterion:backward(predictions, targets)
 		if opt.gpuid < 0 then
@@ -176,6 +179,11 @@ local function feval(params_new)
 	else
 		loss = 0	-- TODO: Not really fair, should be average of previous or somethinga
 	end
+
+	-- Gradient clipping
+    -- grad_params:clamp(-5, 5)
+    -- grad_params:clamp(-opt.grad_clip, opt.grad_clip)
+
 	return loss, grad_params
 end
 
@@ -196,7 +204,7 @@ local function val_eval(params_new)
 	predictions = predictions:view(-1, cur_batchsize, num_phonemes + 1)		-- CTCCriterion expects seq_length x batch x output_dim
 	local loss = ctc_criterion:forward(predictions, targets, sizes)
 
-	-- Again, loss blows up for some minibatches when using GPU...
+	-- Loss used to blow up for some minibatches when using GPU (this should be fixed, see commits)
 	if math.abs(loss) > 1000 then
 		loss = 0
 	end
@@ -290,6 +298,10 @@ for i=cur_epoch,opt.epochs do
 	csvigo.save{path=train_losses_fp, data=train_losses, verbose=false}
 	csvigo.save{path=val_losses_fp, data=val_losses, verbose=false}
 	csvigo.save{path=runtime_per_epoch_fp, data=runtime_per_epoch, verbose=false}
+
+	-- if i % 15 == 0 then
+	-- 	sgd_params.learningRate = sgd_params.learningRate / 2
+	-- end
 end
 
 

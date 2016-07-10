@@ -34,7 +34,7 @@ local function get_rnn_module(use_cudnn, rnn_input_size, rnn_hidden_size)
 	return rnn_module
 end
 
-local function g2p_model(use_cudnn, num_graphemes, num_phonemes, batchsize)	
+local function g2p_model(use_cudnn, num_graphemes, num_phonemes)
 	-- Rnn parameters
 	local rnn_input_size = num_graphemes
 	local rnn_num_hidden_layers = 2
@@ -61,24 +61,16 @@ local function g2p_model(use_cudnn, num_graphemes, num_phonemes, batchsize)
 	local rnn_left = convert_to_masked_unidirectional(rnn, seq_lengths, rnn_module)
 	local rnn_right = convert_to_masked_bidirectional(rnn, seq_lengths, rnn_module)
 
-	-- 2nd hidden layer 
-	-- local cadd = nn.CAddTable()({rnn_left, rnn_right})
-	-- rnn_module = get_rnn_module(use_cudnn, 512, 128)
-	-- local rnn2 = convert_to_masked_unidirectional(cadd, seq_lengths, rnn_module)
+	-- Parallel tracks joined, then fully connected to second rnn 
 	local jt = nn.JoinTable(2)({rnn_left, rnn_right})	-- (seq x batch) x (feat_left + feat_right)
-	rnn_module = get_rnn_module(use_cudnn, 1024, 128)
-	local rnn2 = convert_to_masked_unidirectional(jt, seq_lengths, rnn_module)
-	-- local bn1 = nn.BatchNormalization(512)(cadd)
-	-- rnn2 = convert_to_masked_unidirectional(bn1, seq_lengths, rnn_module)
+	local fc = nn.Linear(1024, 128)(jt)
+	local dr = nn.Dropout(0.5)(fc)
+	rnn_module = get_rnn_module(use_cudnn, 128, 128)
+	local rnn2 = convert_to_masked_unidirectional(dr, seq_lengths, rnn_module)
 
 	-- Add linear layer to output of rnn
 	local post_rnn = nn.Sequential()
-	-- post_rnn:add(nn.BatchNormalization(128))
 	post_rnn:add(nn.Linear(128, num_phonemes + 1))	-- + 1 for the BLANK character in CTC
-
-	-- Reshape from (seq_length x batch) x output_dim --> seq_length x batch x output_dim
-	-- CTCCriterion expects seq_length x batch x output_dim
-	-- post_rnn:add(nn.View(-1, batchsize, num_phonemes + 1))
 
 	-- Glue together module
 	local model = nn.gModule({input, seq_lengths}, { post_rnn(rnn2) })
