@@ -1,0 +1,6 @@
+nesterov,0
+dampening,0
+learningRateDecay,1e-05
+learningRate,0.01
+weightDecay,0
+momentum,0

@@ -2,7 +2,6 @@
 
 require 'warp_ctc'
 
-require 'model'
 require 'model_google'
 
 require 'utils.lua_utils'
@@ -28,7 +27,14 @@ if opt.gpuid >= 0 then
 end
 
 print('Loading model')
-local model = torch.load('models/2016_6_28___21_47_24/e13_0.8734.t7')
+-- local model = torch.load('models/2016_6_30___13_31_35/e33_0.5850.t7')
+-- local model = torch.load('models/test_reload_change_lr_3/e70_0.4748.t7')
+
+-- With fully connected between LSTMs
+-- local model = torch.load('models/2016_7_6___13_38_9_RELOAD_2/e96_0.6218.t7')
+local model = torch.load('models/e114_0.6188.t7') -- With lr_decay
+
+
 model:evaluate()
 
 print('Getting data')
